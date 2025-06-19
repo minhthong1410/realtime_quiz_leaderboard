@@ -17,7 +17,7 @@ var upgrader = websocket.Upgrader{
 type Server struct {
 	Router      *mux.Router
 	quizService services.QuizServiceInterface
-	clients     map[string]map[*websocket.Conn]bool // quizID -> clients
+	clients     map[string]map[*websocket.Conn]bool
 	mutex       sync.Mutex
 }
 

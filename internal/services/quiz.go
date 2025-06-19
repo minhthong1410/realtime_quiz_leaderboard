@@ -10,11 +10,8 @@ import (
 	"realtime_leaderboard/internal/models"
 )
 
-// QuizServiceInterface defines the methods used by the server for quiz operations
 //go:generate mockgen -destination=quiz_mock.go -package=services . QuizServiceInterface
 
-// QuizServiceInterface abstracts QuizService for easier testing
-// Only methods used by the server are included
 type QuizServiceInterface interface {
 	ProcessAnswer(quizID, userID, questionID, answer string) error
 	GetLeaderboard(quizID string) ([]models.LeaderboardEntry, error)

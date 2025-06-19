@@ -21,7 +21,6 @@ type Question struct {
 	CorrectAnswer string         `json:"correct_answer"`
 }
 
-// Custom marshal/unmarshal for Options to appear as []string in JSON
 func (q *Question) MarshalJSON() ([]byte, error) {
 	type Alias Question
 	return json.Marshal(&struct {
