@@ -43,17 +43,25 @@ func (db *DB) UpdateUserScore(ctx context.Context, quizID, userID string, increm
 	return err
 }
 
-func (db *DB) GetLeaderboard(ctx context.Context, quizID string) ([]models.LeaderboardEntry, error) {
-	rows, err := db.QueryContext(ctx, `
-        SELECT u.id, u.username, us.score
-        FROM user_scores us
-        JOIN users u ON us.user_id = u.id
-        WHERE us.quiz_id = $1
-        ORDER BY us.score DESC
-        LIMIT 10
-    `, quizID)
+func (db *DB) GetLeaderboard(ctx context.Context, quizID string, page, pageSize int) ([]models.LeaderboardEntry, int, error) {
+	offset := (page - 1) * pageSize
+
+	var totalCount int
+	err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM user_scores WHERE quiz_id = $1", quizID).Scan(&totalCount)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT u.id, u.username, us.score
+		FROM user_scores us
+		JOIN users u ON us.user_id = u.id
+		WHERE us.quiz_id = $1
+		ORDER BY us.score DESC
+		LIMIT $2 OFFSET $3
+	`, quizID, pageSize, offset)
+	if err != nil {
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -61,9 +69,10 @@ func (db *DB) GetLeaderboard(ctx context.Context, quizID string) ([]models.Leade
 	for rows.Next() {
 		var e models.LeaderboardEntry
 		if err := rows.Scan(&e.UserID, &e.Username, &e.Score); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		leaderboard = append(leaderboard, e)
 	}
-	return leaderboard, nil
+
+	return leaderboard, totalCount, nil
 }

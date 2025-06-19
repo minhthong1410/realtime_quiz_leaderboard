@@ -2,9 +2,11 @@ package database
 
 import (
 	"context"
+	"github.com/lib/pq"
+	"testing"
+
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestNewDB(t *testing.T) {
@@ -31,7 +33,6 @@ func TestGetQuestion(t *testing.T) {
 		WithArgs(questionID).
 		WillReturnRows(rows)
 
-	// Execute the query
 	q, err := d.GetQuestion(ctx, questionID)
 	assert.NoError(t, err, "should not return an error")
 	assert.NotNil(t, q, "question should not be nil")
@@ -39,11 +40,10 @@ func TestGetQuestion(t *testing.T) {
 		assert.Equal(t, "q1", q.ID, "question ID should match")
 		assert.Equal(t, "quiz1", q.QuizID, "quiz ID should match")
 		assert.Equal(t, "What cleans best?", q.QuestionText, "question text should match")
-		assert.ElementsMatch(t, []string{"Water", "Soap"}, []string(q.Options), "options should match")
+		assert.Equal(t, pq.StringArray{"Water", "Soap"}, q.Options, "options should match")
 		assert.Equal(t, "Soap", q.CorrectAnswer, "correct answer should match")
 	}
 
-	// Verify all expectations were met
 	assert.NoError(t, mock.ExpectationsWereMet(), "all mock expectations should be met")
 }
 
@@ -55,7 +55,7 @@ func TestUpdateUserScore(t *testing.T) {
 	d := &DB{db}
 	ctx := context.Background()
 
-	mock.ExpectExec("INSERT INTO user_scores").
+	mock.ExpectExec(`INSERT INTO user_scores`).
 		WithArgs("quiz1", "user1", 1).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
@@ -72,17 +72,25 @@ func TestGetLeaderboard(t *testing.T) {
 	d := &DB{db}
 	ctx := context.Background()
 	quizID := "quiz1"
+	page := 1
+	pageSize := 2
 
+	// Mock total count query
+	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM user_scores WHERE quiz_id = \$1`).
+		WithArgs(quizID).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(4))
+
+	// Mock paginated leaderboard query
 	rows := sqlmock.NewRows([]string{"id", "username", "score"}).
 		AddRow("user1", "Alice", 10).
 		AddRow("user2", "Bob", 5)
-
-	mock.ExpectQuery("SELECT u.id, u.username, us.score FROM user_scores us").
-		WithArgs(quizID).
+	mock.ExpectQuery(`SELECT u\.id, u\.username, us\.score FROM user_scores us`).
+		WithArgs(quizID, pageSize, (page-1)*pageSize).
 		WillReturnRows(rows)
 
-	leaderboard, err := d.GetLeaderboard(ctx, quizID)
+	leaderboard, totalCount, err := d.GetLeaderboard(ctx, quizID, page, pageSize)
 	assert.NoError(t, err)
+	assert.Equal(t, 4, totalCount)
 	assert.Len(t, leaderboard, 2)
 	assert.Equal(t, "user1", leaderboard[0].UserID)
 	assert.Equal(t, "Alice", leaderboard[0].Username)
