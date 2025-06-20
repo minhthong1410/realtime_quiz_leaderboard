@@ -45,12 +45,24 @@ func (s *Server) handleGetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	pageStr := r.URL.Query().Get("page")
 	pageSizeStr := r.URL.Query().Get("page_size")
 	page, err := strconv.Atoi(pageStr)
-	if err != nil || page < 1 {
-		page = 1
+	if err != nil {
+		log.Printf("Invalid page number: %v", err)
+		http.Error(w, "Invalid page", http.StatusBadRequest)
+		return
+	}
+	if page < 1 {
+		http.Error(w, "Page should be greater than 0", http.StatusBadRequest)
+		return
 	}
 	pageSize, err := strconv.Atoi(pageSizeStr)
-	if err != nil || pageSize < 1 || pageSize > 100 {
-		pageSize = 10
+	if err != nil {
+		log.Printf("Invalid page size number: %v", err)
+		http.Error(w, "Invalid page size", http.StatusBadRequest)
+		return
+	}
+	if pageSize < 1 || pageSize > 100 {
+		http.Error(w, "Page size should be between 1 and 100", http.StatusBadRequest)
+		return
 	}
 
 	leaderboard, err := s.quizService.GetLeaderboard(quizID, page, pageSize)
